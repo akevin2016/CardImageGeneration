@@ -1,0 +1,4 @@
+Usage: generate.py <card file name> <number of output images>
+ex. generate.py BlueEyes.png 10
+
+Uses an input card image to create many output images meant for training an image recognition program. This project is still in progress.
