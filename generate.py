@@ -184,7 +184,7 @@ noiseMasks = []
 for i in range(5):
     noiseMasks.append(Image.effect_noise(outputSize, 100))
 
-with Image.open(r"BlueEyes.png") as im:
+with Image.open(targetCard) as im:
     for i in range(numImages):
         tilted = tiltImg(im, random.random() * 2 * math.pi - math.pi, 
                              random.random() * 2 * math.pi / 3 - math.pi / 3)
