@@ -1,5 +1,5 @@
-# Usage: generate.py <card file name> <number of output images>
-# ex. generate.py BlueEyes.png 10
+# Usage: python generate.py <card file name> <number of output images>
+# ex. python generate.py BlueEyes.png 10
 
 from PIL import Image, ImageColor, ImageEnhance
 import sys
