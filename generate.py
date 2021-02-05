@@ -1,6 +1,7 @@
 # Usage: python generate.py <card file name> <number of output images>
 # ex. python generate.py BlueEyes.png 10
 
+# Uses the Pillow module. I used Pillow 6.1.0
 from PIL import Image, ImageColor, ImageEnhance
 import sys
 import math as math
@@ -18,6 +19,42 @@ def getBG(size, masks):
     layer1.paste(layer2, mask=mask)
     layer2.close()
     return layer1
+
+def randGradLight(img, range):
+    lighter = ImageEnhance.Brightness(img)
+    lighted = lighter.enhance(random.random() * (range[1] - range[0]) + range[0])
+    lighted2 = lighter.enhance(random.random() * (range[1] - range[0]) + range[0])
+    #lighted = lighter.enhance(1.6)  # 0.4 to 1.6
+    #lighted2 = lighter.enhance(0.4)
+    gradSize = (math.ceil(math.sqrt(img.size[0]**2 + img.size[1]**2)),) * 2
+    lightGrad = Image.linear_gradient("L").resize(gradSize)
+    rotLightGrad = lightGrad.rotate(random.randrange(0, 360), expand=False)
+    left, top = (int(0.5*rotLightGrad.width - 0.5*img.width), 
+                 int(0.5*rotLightGrad.height - 0.5*img.height))
+    box = (left, top, left + im.width, top + im.height)   # left, top, right, bot
+    lighted.paste(lighted2, mask=rotLightGrad.crop(box))
+    lightGrad.close()
+    rotLightGrad.close()
+    lighted2.close()
+    return lighted
+
+# Scales img randomly to fit in bg, constrained by minScale and maxScale
+# minScale: minimum scale of img in terms of bg's size
+# maxScale: maximum scale of img in terms of bg's size
+# 0 <= minScale <= maxScale <= 1
+# Returns scaled img
+def randScale(img, bg, minScale=0.125, maxScale=1):
+    heightMaxScale = maxScale * bg.height / img.height
+    widthMaxScale = maxScale * bg.width / img.width
+    scaleMax = heightMaxScale if heightMaxScale < widthMaxScale else widthMaxScale
+
+    heightMinScale = minScale * bg.height / img.height
+    widthMinScale = minScale * bg.width / img.width
+    scaleMin = heightMinScale if heightMinScale > widthMinScale else widthMinScale
+
+    sfactor = random.random() * (scaleMax - scaleMin) + scaleMin  # min to max
+    scaled = img.resize((int(img.width * sfactor), int(img.height * sfactor)))
+    return scaled
 
 # points = ((x1, y1), (x2, y2), (x3, y3), (x4, y4)) rectangle
 #           topleft,  topright, botright, botleft
@@ -169,8 +206,14 @@ def tiltImg(im, dirAngle, rotAngle):
     dest = padPoints(dest)
     newSize = getSize(dest)
     coeffs = findCoeffs(dest, src)
-    transformed = im.transform(newSize, Image.PERSPECTIVE, coeffs)
+    transformed = im.transform(newSize, Image.PERSPECTIVE, coeffs, 
+                               resample=Image.BILINEAR)
     return transformed
+
+
+
+
+
 
 targetCard = "BlueEyes.png"
 numImages = 5
@@ -186,31 +229,22 @@ for i in range(5):
 
 with Image.open(targetCard) as im:
     for i in range(numImages):
-        tilted = tiltImg(im, random.random() * 2 * math.pi - math.pi, 
+        lighted = randGradLight(im, (0.4, 1.6))
+
+        tilted = tiltImg(lighted, random.random() * 2 * math.pi - math.pi, 
                              random.random() * 2 * math.pi / 3 - math.pi / 3)
 
-        rotated = tilted.rotate(random.randrange(0, 360), expand=True)
-        #bg = Image.new("RGBA", (1000, 1000), color="#69ba69")
+        rotated = tilted.rotate(random.randrange(0, 360), resample=Image.BILINEAR, 
+                                expand=True)
+
         bg = getBG(outputSize, noiseMasks)
 
-        lighter = ImageEnhance.Brightness(rotated)
-        lighted = lighter.enhance(random.random() * 1.2 + 0.4)  # 0.4 to 1.6
-
-        transformed = lighted   # can change easily
-        # This section deals with scaling as ratio (1 = no scale)
-        heightMaxScale = bg.height / transformed.height
-        widthMaxScale = bg.width / transformed.width
-        scaleMax = heightMaxScale if heightMaxScale < widthMaxScale else widthMaxScale
-        heightMinScale = 0.125 * bg.height / transformed.height
-        widthMinScale = 0.125 * bg.width / transformed.width
-        scaleMin = heightMinScale if heightMinScale > widthMinScale else widthMinScale
-
-        sfactor = random.random() * (scaleMax - scaleMin) + scaleMin  # 0.125 to 1
-        scaled = transformed.resize((int(transformed.width * sfactor), 
-                                     int(transformed.height * sfactor)))
+        scaled = randScale(rotated, bg, 0.125, 1)
+        
         xpos = random.randint(0, bg.width - scaled.width)
         ypos = random.randint(0, bg.height - scaled.height)
         bg.paste(scaled, (xpos, ypos), scaled)
+        
         outName = "Test" + "{index:0" + str(formatPlaces) + "d}"
         bg.save(outName.format(index=i) + ".png")
         tilted.close()
